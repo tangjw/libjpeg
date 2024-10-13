@@ -14,5 +14,7 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "libjpeg"
-include ':app'
 include ':libjpeg'
+if (System.getenv("JITPACK") == null) {
+    include ':app'
+}
