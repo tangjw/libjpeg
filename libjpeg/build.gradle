@@ -12,7 +12,7 @@ android {
         minSdk 24
         ndk {
             // noinspection ChromeOsAbiSupport
-            abiFilters 'arm64-v8a' // 'armeabi', 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            abiFilters 'armeabi-v7a', 'arm64-v8a' // 'armeabi', 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
     }
 
@@ -45,7 +45,7 @@ afterEvaluate {
                 from components.release
                 groupId = "com.github.tangjw"
                 artifactId = "libjpeg"
-                version = "1.0.0"
+                version = "1.0.1"
             }
         }
     }

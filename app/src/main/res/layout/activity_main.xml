@@ -6,9 +6,18 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <TextView
+    <Button
+        android:id="@+id/btn_test"
+        app:layout_constraintTop_toTopOf="parent"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:text="美图SDk" />
+
+    <ImageView
+        android:id="@+id/iv_image"
+        app:layout_constraintTop_toBottomOf="@id/btn_test"
+        android:layout_width="match_parent"
+        app:layout_constraintDimensionRatio="2:3"
+        android:layout_height="0dp"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
