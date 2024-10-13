@@ -1,6 +1,6 @@
 .DS_Store
+libjpeg-turbo
 /.gradle
 /.idea
 /build
 local.properties
-settings.gradle
