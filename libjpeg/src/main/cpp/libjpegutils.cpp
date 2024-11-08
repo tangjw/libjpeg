@@ -386,7 +386,7 @@ Java_com_github_tangjw_libjpeg_JpegUtils_tJpegCompressFile(JNIEnv *env, jclass c
                                                            jstring jpeg_path) {
     if (jpeg_info == nullptr) return -1;
 
-    jclass classJpegInfo = env->FindClass("com/github/tangjw/JpegInfo");
+    jclass classJpegInfo = env->FindClass("com/github/tangjw/libjpeg/JpegInfo");
     jbyteArray jPixels =
             (jbyteArray) env->GetObjectField(jpeg_info,
                                              env->GetFieldID(classJpegInfo, "pixels", "[B"));
