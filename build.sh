@@ -23,7 +23,7 @@ ANDROID_VERSION=21  # 最低支持 api-21
 
 CMAKE_OPTIONS="cmake -G\"Unix Makefiles\" -DANDROID_ABI=$ABI -DANDROID_PLATFORM=android-$ANDROID_VERSION -DANDROID_TOOLCHAIN=clang -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake"
 
- 如果 ABI 是 arm64-v8a，添加 -DCMAKE_ASM_FLAGS
+# 如果 ABI 是 arm64-v8a，添加 -DCMAKE_ASM_FLAGS
 if [ "$ABI" == "arm64-v8a" ]; then
   CMAKE_OPTIONS="$CMAKE_OPTIONS -DANDROID_ARM_MODE=arm -DCMAKE_ASM_FLAGS="--target=aarch64-linux-android$ANDROID_VERSION""
 elif [ "$ABI" == "armeabi-v7a" ]; then

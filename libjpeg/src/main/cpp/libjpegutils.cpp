@@ -2,352 +2,25 @@
 #include <string>
 
 #include <malloc.h>
-#include <stdio.h>
-#include <setjmp.h>
+#include <cstdio>
+#include <csetjmp>
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 
-#include "base/Log.h"
 #include "libjpeg/turbojpeg.h"
+//#include "base/Log.h"
 
-/*
-extern "C"
-JNIEXPORT jbyteArray JNICALL
-Java_com_github_tangjw_libjpeg_LibJpegUtils_tBytesToRgb(JNIEnv *env, jclass clazz,
-                                                         jbyteArray bytes, jint start, jint length,
-                                                         jbyteArray jPixels) {
-
-    tjhandle tjInstance = tj3Init(TJINIT_DECOMPRESS);
-    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
-    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
-    jbyte *pFileBuf = env->GetByteArrayElements(bytes, 0) + start;
-    int ret = tj3DecompressHeader(tjInstance, (uint8_t *) pFileBuf, length);
-    Log::d("tj3DecompressHeader fail: %d", ret);
-
-    int width = tj3Get(tjInstance, TJPARAM_JPEGWIDTH);
-    int height = tj3Get(tjInstance, TJPARAM_JPEGHEIGHT);
-
-    long pixelSize = width * height * 4 + 8;
-
-    if (pixelSize > INT32_MAX)
-        Log::d("allocating uncompressed image buffer Image is too large %d", pixelSize);
-    if (jPixels == nullptr || pixelSize != env->GetArrayLength(jPixels)) {
-        env->DeleteLocalRef(jPixels);
-        jPixels = env->NewByteArray(pixelSize);
-    }
-    jbyte *pPixelsBuf = env->GetByteArrayElements(jPixels, 0);
-    if (tj3Decompress8(tjInstance, (uint8_t *) pFileBuf, length,
-                       (uint8_t *) pPixelsBuf, 0, TJPF_RGBX) < 0)
-        Log::d("decompressing JPEG image");
-    env->ReleaseByteArrayElements(jPixels, pPixelsBuf, 0);
-    tj3Destroy(tjInstance);
-    tjInstance = nullptr;
-
-    env->SetByteArrayRegion(jPixels, pixelSize - 8, 4, (jbyte *) &width);
-    env->SetByteArrayRegion(jPixels, pixelSize - 4, 4, (jbyte *) &height);
-
-    return jPixels;
-}
-
-extern "C"
-JNIEXPORT jbyteArray JNICALL
-Java_com_github_tangjw_libjpeg_LibJpegUtils_tJpegToRgb(JNIEnv *env, jclass clazz,
-
-                                                        jstring jInPath, jbyteArray jPixels) {
-    const char *pInPath = env->GetStringUTFChars(jInPath, 0);
-    FILE *pFile = fopen(pInPath, "rb");
-    env->ReleaseStringUTFChars(jInPath, pInPath);
-
-    long fileSize = 0;
-    if (fseek(pFile, 0, SEEK_END) < 0
-        || ((fileSize = ftell(pFile)) < 0)
-        || fseek(pFile, 0, SEEK_SET) < 0
-        || fileSize == 0)
-        Log::d("文件无法访问或者文件没有数据");
-
-    uint8_t *pFileBuf = (uint8_t *) tj3Alloc(fileSize);
-    fread(pFileBuf, fileSize, 1, pFile);
-    fclose(pFile);
-    tjhandle tjInstance = tj3Init(TJINIT_DECOMPRESS);
-    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
-    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
-
-    tj3DecompressHeader(tjInstance, pFileBuf, fileSize);
-    int width = tj3Get(tjInstance, TJPARAM_JPEGWIDTH);
-    int height = tj3Get(tjInstance, TJPARAM_JPEGHEIGHT);
-
-    long pixelSize = width * height * 4 + 8;
-
-    if (pixelSize > INT32_MAX)
-        Log::d("allocating uncompressed image buffer Image is too large %d", pixelSize);
-    if (jPixels == nullptr || pixelSize != env->GetArrayLength(jPixels)) {
-        env->DeleteLocalRef(jPixels);
-        jPixels = env->NewByteArray(pixelSize);
-    }
-
-    jbyte *pPixelsBuf = env->GetByteArrayElements(jPixels, 0);
-    if (tj3Decompress8(tjInstance, pFileBuf, fileSize,
-                       (uint8_t *) pPixelsBuf, 0, TJPF_RGBX) < 0)
-        Log::d("decompressing JPEG image");
-    free(pFileBuf);
-    env->ReleaseByteArrayElements(jPixels, pPixelsBuf, 0);
-    tj3Destroy(tjInstance);
-
-    env->SetByteArrayRegion(jPixels, pixelSize - 8, 4, (jbyte *) &width);
-    env->SetByteArrayRegion(jPixels, pixelSize - 4, 4, (jbyte *) &height);
-
-    return jPixels;
-}
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_github_tangjw_libjpeg_LibJpegUtils_tRgbToJpeg(JNIEnv *env, jclass clazz,
-                                                        jstring jOutPath, jbyteArray jPixels,
-                                                        jint jWidth, jint jHeight) {
-
-    tjhandle tjInstance = tj3Init(TJINIT_COMPRESS);
-
-    if (tj3Set(tjInstance, TJPARAM_SUBSAMP, TJSAMP_420) < 0) Log::d("setting TJPARAM_SUBSAMP");
-    if (tj3Set(tjInstance, TJPARAM_COLORSPACE, TJCS_YCbCr) < 0)
-        Log::d("setting TJPARAM_COLORSPACE");
-    if (tj3Set(tjInstance, TJPARAM_QUALITY, 95) < 0) Log::d("setting TJPARAM_QUALITY");
-    if (tj3Set(tjInstance, TJPARAM_FASTDCT, 1) < 0) Log::d("setting TJPARAM_FASTDCT");
-
-    size_t fileSize = 0;
-    uint8_t *pFileBuf = nullptr;
-
-    jbyte *pPixelsBuf = env->GetByteArrayElements(jPixels, 0);
-    if (tj3Compress8(tjInstance, (uint8_t *) pPixelsBuf, jWidth, 0, jHeight,
-                     TJPF_RGBX, &pFileBuf, &fileSize) < 0)
-        Log::d("compressing image");
-    env->ReleaseByteArrayElements(jPixels, pPixelsBuf, 0);
-    tj3Destroy(tjInstance);
-    tjInstance = nullptr;
-
-    const char *pOutPath = env->GetStringUTFChars(jOutPath, 0);
-    FILE *pFile = fopen(pOutPath, "wb");
-    env->ReleaseStringUTFChars(jOutPath, pOutPath);
-    if (fwrite(pFileBuf, fileSize, 1, pFile) < 1) Log::d("writing output file");
-    free(pFileBuf);
-    pFileBuf = nullptr;
-    fclose(pFile);
-
-    return 0;
-}*/
-
-void throwExc(JNIEnv *env, const char *msg) {
-    jclass cls = env->FindClass("java/io/IOException");
-    if (cls != NULL) {
-        env->ThrowNew(cls, msg);
-    }
-    env->DeleteLocalRef(cls);
-}
-
-jobject decompressJpeg(JNIEnv *env, jobject jpegInfo, uint8_t *pDatas, size_t dataSize) {
-    tjhandle tjInstance = tj3Init(TJINIT_DECOMPRESS);
-    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
-    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
-
-    int ret = tj3DecompressHeader(tjInstance, pDatas, dataSize);
-    if (ret != 0) {
-        tj3Destroy(tjInstance);
-        throwExc(env, "tj3DecompressHeader fail!");
-        return jpegInfo;
-    }
-
-    jclass classJpegInfo = env->FindClass("com/github/tangjw/libjpeg/JpegInfo");
-    jmethodID jpegInfoInit = env->GetMethodID(classJpegInfo, "<init>", "()V");
-    if (jpegInfo == nullptr) {
-        jpegInfo = env->NewObject(classJpegInfo, jpegInfoInit);
-    }
-
-    int width = tj3Get(tjInstance, TJPARAM_JPEGWIDTH);
-    env->SetIntField(jpegInfo, env->GetFieldID(classJpegInfo, "width", "I"), width);
-    int height = tj3Get(tjInstance, TJPARAM_JPEGHEIGHT);
-    env->SetIntField(jpegInfo, env->GetFieldID(classJpegInfo, "height", "I"), height);
-
-    long pixelSize = width * height * 4;
-    if (pixelSize > INT32_MAX) {
-        tj3Destroy(tjInstance);
-        throwExc(env, "Image is too large!");
-        return jpegInfo;
-    }
-    jfieldID pixelsField = env->GetFieldID(classJpegInfo, "pixels", "[B");
-    jbyteArray jPixels = (jbyteArray) env->GetObjectField(jpegInfo, pixelsField);
-
-    if (jPixels == nullptr || pixelSize != env->GetArrayLength(jPixels)) {
-        env->DeleteLocalRef(jPixels);
-        jPixels = env->NewByteArray(pixelSize);
-    }
-
-    jbyte *pPixels = env->GetByteArrayElements(jPixels, 0);
-    ret = tj3Decompress8(tjInstance, (uint8_t *) pDatas, dataSize,
-                         (uint8_t *) pPixels, 0, TJPF_RGBX);
-    tj3Destroy(tjInstance);
-    env->SetObjectField(jpegInfo, pixelsField, jPixels);
-    env->ReleaseByteArrayElements(jPixels, pPixels, 0);
-
-    if (ret != 0) {
-        throwExc(env, "tj3Decompress8 fail ");
-    }
-
-    return jpegInfo;
-}
-
-jobject decompressJpegRota(JNIEnv *env, jobject jpegInfo, uint8_t *pDatas, size_t dataSize,
-                           TJXOP tjxop) {
-    tjhandle tjInstance;
-    int ret;
-    if (tjxop != TJXOP_NONE) {
-        tjtransform xform;
-        memset(&xform, 0, sizeof(tjtransform));
-        xform.op = tjxop;
-        xform.options |= TJXOPT_TRIM;
-        unsigned char *dstBuf = nullptr;  /* Dynamically allocate the JPEG buffer */
-        size_t dstSize = 0;
-        tjInstance = tj3Init(TJINIT_TRANSFORM);
-        ret = tj3Transform(tjInstance, pDatas, dataSize, 1,
-                           &dstBuf, &dstSize, &xform);
-        if (ret < 0) {
-            tj3Free(dstBuf);
-            tj3Destroy(tjInstance);
-            throwExc(env, "tj3Transform fail!");
-            return jpegInfo;
-        }
-        pDatas = dstBuf;
-        dataSize = dstSize;
-        tj3Destroy(tjInstance);
-    }
-
-    tjInstance = tj3Init(TJINIT_DECOMPRESS);
-    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
-    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
-
-    ret = tj3DecompressHeader(tjInstance, pDatas, dataSize);
-
-    if (ret < 0) {
-        tj3Destroy(tjInstance);
-        throwExc(env, "tj3DecompressHeader fail!");
-        return jpegInfo;
-    }
-
-    jclass classJpegInfo = env->FindClass("com/github/tangjw/libjpeg/JpegInfo");
-    jmethodID jpegInfoInit = env->GetMethodID(classJpegInfo, "<init>", "()V");
-    if (jpegInfo == nullptr) {
-        jpegInfo = env->NewObject(classJpegInfo, jpegInfoInit);
-    }
-
-    int width = tj3Get(tjInstance, TJPARAM_JPEGWIDTH);
-    env->SetIntField(jpegInfo, env->GetFieldID(classJpegInfo, "width", "I"), width);
-    int height = tj3Get(tjInstance, TJPARAM_JPEGHEIGHT);
-    env->SetIntField(jpegInfo, env->GetFieldID(classJpegInfo, "height", "I"), height);
-
-    long pixelSize = width * height * 4;
-    if (pixelSize > INT32_MAX) {
-        tj3Destroy(tjInstance);
-        throwExc(env, "Image is too large!");
-        return jpegInfo;
-    }
-    jfieldID pixelsField = env->GetFieldID(classJpegInfo, "pixels", "[B");
-    jbyteArray jPixels = (jbyteArray) env->GetObjectField(jpegInfo, pixelsField);
-
-    if (jPixels == nullptr || pixelSize != env->GetArrayLength(jPixels)) {
-        env->DeleteLocalRef(jPixels);
-        jPixels = env->NewByteArray(pixelSize);
-    }
-
-    jbyte *pPixels = env->GetByteArrayElements(jPixels, 0);
-    ret = tj3Decompress8(tjInstance, (uint8_t *) pDatas, dataSize,
-                         (uint8_t *) pPixels, 0, TJPF_RGBX);
-    if (tjxop != TJXOP_NONE) {
-        tj3Free(pDatas);
-    }
-
-    tj3Destroy(tjInstance);
-    env->SetObjectField(jpegInfo, pixelsField, jPixels);
-    env->ReleaseByteArrayElements(jPixels, pPixels, 0);
-    if (ret < 0) {
-        throwExc(env, "tj3Decompress8 fail ");
-    }
-    return jpegInfo;
-}
-
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_github_tangjw_libjpeg_JpegUtils_tJpegDecodeFile(JNIEnv *env, jclass clazz,
-                                                         jobject jpeg_info,
-                                                         jstring jpeg_path, jint orientation) {
-
-    const char *pJepgPath = env->GetStringUTFChars(jpeg_path, 0);
-    FILE *pJpegFile = fopen(pJepgPath, "rb");
-    env->ReleaseStringUTFChars(jpeg_path, pJepgPath);
-
-    if (pJpegFile == nullptr) {
-        throwExc(env, "文件不存在或者无法访问");
-        return jpeg_info;
-    }
-
-    size_t dataSize;
-    if (fseek(pJpegFile, 0, SEEK_END) < 0
-        || ((dataSize = ftell(pJpegFile)) < 0)
-        || fseek(pJpegFile, 0, SEEK_SET) < 0
-        || dataSize == 0) {
-        throwExc(env, "文件没有数据");
-        return jpeg_info;
-    }
-
-    void *pDatas = malloc(dataSize);
-    fread(pDatas, dataSize, 1, pJpegFile);
-    fclose(pJpegFile);
-
-//    jobject jpegInfo = decompressJpeg(env, jpeg_info, (uint8_t *) pDatas, dataSize);
-//    free(pDatas);
-    TJXOP tjxop;
-    if (orientation == 90) {
-        tjxop = TJXOP_ROT90;
-    } else if (orientation == 180) {
-        tjxop = TJXOP_ROT180;
-    } else if (orientation == 270) {
-        tjxop = TJXOP_ROT270;
-    } else {
-        tjxop = TJXOP_NONE;
-//        tjxop = TJXOP_HFLIP;
-    }
-    jobject jpegInfo = decompressJpegRota(env, jpeg_info, (uint8_t *) pDatas,
-                                          dataSize, tjxop);
-    free(pDatas);
-    return jpegInfo;
-}
-
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_github_tangjw_libjpeg_JpegUtils_tJpegDecodeBuffer(JNIEnv *env, jclass clazz,
-                                                           jobject jpeg_info,
-                                                           jobject jpeg_buffer,
-                                                           jint start, jint length, jint orientation) {
-    void *pDatas = env->GetDirectBufferAddress(jpeg_buffer);
-    if (pDatas == nullptr) {
-        throwExc(env, "DirectBuffer不存在或者无法访问");
-        return jpeg_info;
-    }
-    TJXOP tjxop;
-    if (orientation == 90) {
-        tjxop = TJXOP_ROT90;
-    } else if (orientation == 180) {
-        tjxop = TJXOP_ROT180;
-    } else if (orientation == 270) {
-        tjxop = TJXOP_ROT270;
-    } else {
-        tjxop = TJXOP_NONE;
-    }
-    return decompressJpegRota(env, jpeg_info, (uint8_t *) pDatas + start, length,tjxop);
-}
+const int ERR_OK = 0;
+const int ERR_COMPRESS = -11;
+const int ERR_DECOMPRESS = -12;
+const int ERR_DECOMPRESS_HEADER = -13;
+const int ERR_TRANSFORM = -14;
+const int ERR_RESOLUTION = -15;
+const int ERR_GL_ERROR = -16;
 
 
-int compressJpeg(uint8_t *pPixels, int width, int height, int quality,
-                 const char *pOutPath) {
-    Log::d("width %d height %d", width, height);
-    Log::d("quality %d", quality);
+int compressJpeg(uint8_t *pPixels, int width, int height, int quality, const char *pOutPath) {
     tjhandle tjInstance = tj3Init(TJINIT_COMPRESS);
     tj3Set(tjInstance, TJPARAM_SUBSAMP, TJSAMP_420);
     tj3Set(tjInstance, TJPARAM_COLORSPACE, TJCS_YCbCr);
@@ -357,85 +30,312 @@ int compressJpeg(uint8_t *pPixels, int width, int height, int quality,
     size_t fileSize = 0;
     uint8_t *pFileBuf = nullptr;
 
-    int ret = tj3Compress8(tjInstance, pPixels, width, 0, height,
-                           TJPF_RGBX, &pFileBuf, &fileSize);
+    int ret = tj3Compress8(tjInstance, pPixels, width, 0, height, TJPF_RGBX, &pFileBuf, &fileSize);
     tj3Destroy(tjInstance);
 
-    if (ret != 0) {
+    if (ret != ERR_OK) {
         free(pFileBuf);
-        return -11;
+        return ERR_COMPRESS;
     }
 
     FILE *pFile = fopen(pOutPath, "wb");
-    if (pFile == nullptr) {
-        free(pFileBuf);
-        return -12;
-    }
-
     fwrite(pFileBuf, fileSize, 1, pFile);
     fclose(pFile);
     free(pFileBuf);
 
-    return 0;
+    return ret;
+}
+
+TJXOP calcTransform(int orientation) {
+    TJXOP tjxop;
+    switch (orientation) {
+        case 1:
+            tjxop = TJXOP_NONE;
+            break;
+        case 2:
+            tjxop = TJXOP_HFLIP;
+            break;
+        case 3:
+            tjxop = TJXOP_ROT180;
+            break;
+        case 4:
+            tjxop = TJXOP_VFLIP;
+            break;
+        case 5:
+            tjxop = TJXOP_TRANSPOSE;
+            break;
+        case 6:
+            tjxop = TJXOP_ROT90;
+            break;
+        case 7:
+            tjxop = TJXOP_TRANSVERSE;
+            break;
+        case 8:
+            tjxop = TJXOP_ROT270;
+            break;
+        default:
+            tjxop = TJXOP_NONE;
+            break;
+    }
+    return tjxop;
+}
+
+int transform(uint8_t **jpegBuffer, size_t *jpegSize, int orientation, bool freeOld) {
+    TJXOP tjxop = calcTransform(orientation);
+    if (tjxop == TJXOP_NONE) {
+        return ERR_OK;
+    }
+    tjtransform xform;
+    memset(&xform, 0, sizeof(tjtransform));
+    xform.op = tjxop;
+    xform.options |= TJXOPT_TRIM;
+    uint8_t *dstBuf = nullptr;  /* Dynamically allocate the JPEG buffer */
+    size_t dstSize = 0;
+    tjhandle tjInstance = tj3Init(TJINIT_TRANSFORM);
+    int ret = tj3Transform(tjInstance, *jpegBuffer, *jpegSize, 1, &dstBuf, &dstSize, &xform);
+    tj3Destroy(tjInstance);
+    if (ret != ERR_OK) {
+        tj3Free(dstBuf);
+        return ERR_TRANSFORM; // tj3Transform() => 变换出错
+    }
+    if (freeOld) free(*jpegBuffer);
+    *jpegBuffer = dstBuf;
+    *jpegSize = dstSize;
+    return ret;
+}
+
+int decompressHeader(tjhandle tjInstance, uint8_t *jpegBuffer, size_t jpegSize, int *width,
+                     int *height) {
+    int ret = tj3DecompressHeader(tjInstance, jpegBuffer, jpegSize);
+    if (ret != ERR_OK) return ERR_DECOMPRESS_HEADER;  // tj3DecompressHeader() => 获取 JPEG 信息出错
+
+    int w = tj3Get(tjInstance, TJPARAM_JPEGWIDTH);
+    int h = tj3Get(tjInstance, TJPARAM_JPEGHEIGHT);
+    int size = w * h * 4;
+
+    if (0 < size && size < INT32_MAX) {
+        if (width != nullptr) *width = w;
+        if (height != nullptr) *height = h;
+        return ret;
+    }
+    return ERR_RESOLUTION;
+}
+
+int decompress(uint8_t **jpegBuffer, size_t jpegSize, int orientation, uint8_t **pixelData,
+               int *width, int *height) {
+    // 根据 orientation 转换 jpeg
+    TJXOP tjxop = calcTransform(orientation);
+    if (tjxop != TJXOP_NONE) transform(jpegBuffer, &jpegSize, orientation, true);
+    tjhandle tjInstance = tj3Init(TJINIT_DECOMPRESS);
+    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
+    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
+    // decode header 获取 宽高信息
+    int w = 0;
+    int h = 0;
+    int ret = decompressHeader(tjInstance, *jpegBuffer, jpegSize, &w, &h);
+    if (ret != ERR_OK) {
+        tj3Destroy(tjInstance);
+        return ret;
+    }
+    //Log::d("%d*%d", *width, *height);
+    auto *pixels = (uint8_t *) malloc(w * h * 4);
+
+    ret = tj3Decompress8(tjInstance, *jpegBuffer, jpegSize, pixels, 0, TJPF_RGBX);
+    //Log::d("ret=%d", ret);
+    tj3Destroy(tjInstance);
+    if (ret != ERR_OK) {
+        free(pixels);
+        return ERR_DECOMPRESS;
+    }
+    *width = w;
+    *height = h;
+    *pixelData = pixels;
+    return ret;
+}
+
+int decompressJpegInfo(JNIEnv *env, jobject jpegInfo, uint8_t *jpegBuffer, size_t jpegSize,
+                       int orientation) {
+    // 根据 orientation 转换 jpeg
+    TJXOP tjxop = calcTransform(orientation);
+    if (tjxop != TJXOP_NONE) transform(&jpegBuffer, &jpegSize, orientation, false);
+    tjhandle tjInstance = tj3Init(TJINIT_DECOMPRESS);
+    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
+    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
+    // decode header 获取 宽高信息
+    int width = 0;
+    int height = 0;
+    int ret = decompressHeader(tjInstance, jpegBuffer, jpegSize, &width, &height);
+    if (ret != ERR_OK) {
+        tj3Destroy(tjInstance);
+        return ret;
+    }
+    // 设置 jobject: jpegInfo #width #height #pixels
+    jclass classJpegInfo = env->FindClass("com/github/tangjw/libjpeg/JpegInfo");
+    env->SetIntField(jpegInfo, env->GetFieldID(classJpegInfo, "width", "I"), width);
+    env->SetIntField(jpegInfo, env->GetFieldID(classJpegInfo, "height", "I"), height);
+    jfieldID pixelsField = env->GetFieldID(classJpegInfo, "pixels", "[B");
+    auto jPixels = (jbyteArray) env->GetObjectField(jpegInfo, pixelsField);
+    int pixelsSize = width * height * 4;
+    // 如果 pixels为null或者length不等于
+    if (jPixels == nullptr || pixelsSize != env->GetArrayLength(jPixels)) {
+        env->DeleteLocalRef(jPixels);   // 删除旧引用
+        jPixels = env->NewByteArray(pixelsSize);    // 创建新的
+    }
+    jbyte *pPixels = env->GetByteArrayElements(jPixels, JNI_FALSE);
+    // 解码 jpeg
+    ret = tj3Decompress8(tjInstance, jpegBuffer, jpegSize, (uint8_t *) pPixels, 0, TJPF_RGBX);
+    env->ReleaseByteArrayElements(jPixels, pPixels, 0);
+    env->SetObjectField(jpegInfo, pixelsField, jPixels);
+    tj3Destroy(tjInstance);
+    if (ret != ERR_OK) return ERR_DECOMPRESS;
+    return ret;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_tangjw_libjpeg_JpegUtils_tJpegDecompressFile(JNIEnv *env, jclass clazz,
+                                                             jstring file_path, jint file_size,
+                                                             jint orientation,
+                                                             jobject jpeg_info) {
+
+    const char *path = env->GetStringUTFChars(file_path, JNI_FALSE);
+    FILE *file = fopen(path, "rb");
+    env->ReleaseStringUTFChars(file_path, path);
+
+    size_t bufferSize = file_size;
+    void *buffer = malloc(bufferSize);
+    fread(buffer, bufferSize, 1, file);
+    fclose(file);
+    int ret = decompressJpegInfo(env, jpeg_info, (uint8_t *) buffer, bufferSize, orientation);
+    free(buffer);
+    return ret;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_tangjw_libjpeg_JpegUtils_tJpegDecompressDirectBuffer(JNIEnv *env, jclass clazz,
+                                                                     jobject byte_buffer,
+                                                                     jint offset,
+                                                                     jint length,
+                                                                     jint exif_orientation,
+                                                                     jobject jpeg_info) {
+    auto *buffer = (uint8_t *) env->GetDirectBufferAddress(byte_buffer);
+    return decompressJpegInfo(env, jpeg_info, buffer + offset, length, exif_orientation);
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_tangjw_libjpeg_JpegUtils_tJpegDecompressByteArray(JNIEnv *env, jclass clazz,
+                                                                  jbyteArray byte_array,
+                                                                  jint offset,
+                                                                  jint length,
+                                                                  jint exif_orientation,
+                                                                  jobject jpeg_info) {
+    jbyte *bytes = env->GetByteArrayElements(byte_array, JNI_FALSE);
+    int ret = decompressJpegInfo(env, jpeg_info, (uint8_t *) bytes + offset, length,
+                                 exif_orientation);
+    env->ReleaseByteArrayElements(byte_array, bytes, 0);
+    return ret;
 }
 
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_github_tangjw_libjpeg_JpegUtils_tJpegCompressFile(JNIEnv *env, jclass clazz,
-                                                           jobject jpeg_info,
-                                                           jstring jpeg_path) {
-    if (jpeg_info == nullptr) return -1;
+                                                           jstring file_path,
+                                                           jint file_size,
+                                                           jint exif_orientation,
+                                                           jint quality,
+                                                           jstring out_path) {
 
-    jclass classJpegInfo = env->FindClass("com/github/tangjw/libjpeg/JpegInfo");
-    jbyteArray jPixels =
-            (jbyteArray) env->GetObjectField(jpeg_info,
-                                             env->GetFieldID(classJpegInfo, "pixels", "[B"));
-    if (jPixels == nullptr) return -2;
+    const char *pJpegPath = env->GetStringUTFChars(file_path, JNI_FALSE);
+    FILE *pJpegFile = fopen(pJpegPath, "rb");
+    env->ReleaseStringUTFChars(file_path, pJpegPath);
 
-    jint width = env->GetIntField(jpeg_info, env->GetFieldID(classJpegInfo, "width", "I"));
-    jint height = env->GetIntField(jpeg_info, env->GetFieldID(classJpegInfo, "height", "I"));
+    size_t jpegSize = file_size;
+    auto *pJpegBuffer =(uint8_t *) malloc(jpegSize);
+    fread(pJpegBuffer, jpegSize, 1, pJpegFile);
+    fclose(pJpegFile);
 
-    size_t pixelSize = width * height * 4;
-    Log::d("%d %d %d", width, height, pixelSize);
-    if (pixelSize > env->GetArrayLength(jPixels)) return -3;
+    tjhandle tjInstance = tj3Init(TJINIT_DECOMPRESS);
+    tj3Set(tjInstance, TJPARAM_FASTUPSAMPLE, 1);
+    tj3Set(tjInstance, TJPARAM_FASTDCT, 1);
+    // decode header 获取 宽高信息
+    int width = 0;
+    int height = 0;
+    uint8_t *pPixelsBuffer = nullptr;
+    // int ret = decompressHeader(tjInstance,(uint8_t *) pJpegBuffer, jpegSize, &width, &height);
+    int ret = decompress( &pJpegBuffer, jpegSize, exif_orientation, &pPixelsBuffer, &width, &height);
+    free(pJpegBuffer);
 
-    jbyte *pPixels = env->GetByteArrayElements(jPixels, 0);
-    const char *pOutPath = env->GetStringUTFChars(jpeg_path, 0);
-    int ret = compressJpeg((uint8_t *) pPixels, width, height, 95, pOutPath);
-    env->ReleaseStringUTFChars(jpeg_path, pOutPath);
-    env->ReleaseByteArrayElements(jPixels, pPixels, 0);
-
+    if (ret != ERR_OK) {
+        free(pPixelsBuffer);
+        return ERR_DECOMPRESS;
+    }
+    // 压缩
+    const char *pOutPath = env->GetStringUTFChars(out_path, JNI_FALSE);
+    ret = compressJpeg(pPixelsBuffer, width, height, quality, pOutPath);
+    free(pPixelsBuffer);
+    env->ReleaseStringUTFChars(out_path, pOutPath);
     return ret;
 }
 
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_github_tangjw_libjpeg_JpegUtils_tJpegCompressTexture(JNIEnv *env, jclass clazz,
-                                                              jint texture, jstring jpeg_path) {
+                                                              jint textureId,
+                                                              jint width,
+                                                              jint height,
+                                                              jint quality,
+                                                              jstring out_path) {
+    if (glGetError() != GL_NO_ERROR) return ERR_GL_ERROR;
+
     GLuint iFBO = 0;
     glGenFramebuffers(1, &iFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, iFBO);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) return -1;
+    if (status != GL_FRAMEBUFFER_COMPLETE) return ERR_GL_ERROR;
 
-    GLint vp[4] = {0};
-    glGetIntegerv(GL_VIEWPORT, vp);
-    int width = vp[2], height = vp[3];
-    Log::d("%d,%d,%d,%d", vp[0], vp[1], vp[2], vp[3]);
-
-    uint8_t *pPixels = (uint8_t *) malloc(width * height * 4);
+    void *pPixels = malloc(width * height * 4);
 
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pPixels);
-    // glBindFramebuffer(GL_FRAMEBUFFER, GL_NONE);    // 绑定 0 渲染到主窗口 不需要直接删除
+    glBindFramebuffer(GL_FRAMEBUFFER, GL_NONE);    // 绑定 0 渲染到主窗口 不需要直接删除
     glDeleteFramebuffers(1, &iFBO);     // 删除帧缓冲对象
 
-    const char *pOutPath = env->GetStringUTFChars(jpeg_path, 0);
-    int ret = compressJpeg((uint8_t *) pPixels, width, height, 95, pOutPath);
-    env->ReleaseStringUTFChars(jpeg_path, pOutPath);
+    const char *pOutPath = env->GetStringUTFChars(out_path, JNI_FALSE);
+    int ret = compressJpeg((uint8_t *) pPixels, width, height, quality, pOutPath);
+    env->ReleaseStringUTFChars(out_path, pOutPath);
     free(pPixels);
 
+    return ret;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_tangjw_libjpeg_JpegUtils_tJpegCompressBytes(JNIEnv *env, jclass clazz,
+                                                            jbyteArray pixels_array, jint offset,
+                                                            jint width, jint height,
+                                                            jint quality, jstring out_path) {
+    jbyte *pPixels = env->GetByteArrayElements(pixels_array, JNI_FALSE);
+    const char *pOutPath = env->GetStringUTFChars(out_path, JNI_FALSE);
+    int ret = compressJpeg((uint8_t *) pPixels + offset, width, height, quality, pOutPath);
+    env->ReleaseStringUTFChars(out_path, pOutPath);
+    env->ReleaseByteArrayElements(pixels_array, pPixels, 0);
+    return ret;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_github_tangjw_libjpeg_JpegUtils_tJpegCompressDirectBuffer(JNIEnv *env, jclass clazz,
+                                                                   jobject pixels_buffer,
+                                                                   jint offset,
+                                                                   jint width, jint height,
+                                                                   jint quality, jstring out_path) {
+    const char *pOutPath = env->GetStringUTFChars(out_path, JNI_FALSE);
+    void *pPixels = env->GetDirectBufferAddress(pixels_buffer);
+    int ret = compressJpeg((uint8_t *) pPixels + offset, width, height, quality, pOutPath);
+    env->ReleaseStringUTFChars(out_path, pOutPath);
     return ret;
 }

@@ -6,10 +6,10 @@ plugins {
 
 android {
     namespace 'github.tangjw.libjpegturbo'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
-        minSdk 24
+        minSdk 21
         ndk {
             // noinspection ChromeOsAbiSupport
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
@@ -24,7 +24,7 @@ android {
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            version "3.22.1"
+            // version "3.22.1"
         }
     }
     compileOptions {
@@ -45,7 +45,7 @@ afterEvaluate {
                 from components.release
                 groupId = "com.github.tangjw"
                 artifactId = "libjpeg"
-                version = "1.0.4"
+                version = "1.0.5"
             }
         }
     }
